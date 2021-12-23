@@ -1,8 +1,9 @@
 library(tools)
 
+library(exactextractr)
 library(sf)
 library(terra)
-library(exactextractr)
+library(tidyverse)
 
 
 img_summary <- function(img_path, labels) {
@@ -15,10 +16,16 @@ img_summary <- function(img_path, labels) {
   results
 }
 
-labels <- read_sf("data/labels.geojson")
-s2_images <- list.files("data/", pattern = "*.tif", full.names = TRUE)
+process_labels <- function(s2_images, labels, output_path) {
+  lapply(s2_images, img_summary, labels = labels) %>%
+    bind_cols(labels, .) %>%
+    st_set_geometry(NULL) %>%
+    write_csv(output_path)
+}
 
-lapply(s2_images, img_summary, labels = labels) %>%
-  bind_cols(labels, .) %>%
-  st_set_geometry(NULL) %>%
-  write_csv("data/s2_data.csv")
+training_labels <- read_sf("data/training_labels.geojson")
+test_labels <- read_sf("data/test_labels.geojson")
+s2_images <- list.files("data/s2_tiffs", pattern = "*.tif", full.names = TRUE)
+
+process_labels(s2_images, training_labels, "data/s2_training_data.csv")
+process_labels(s2_images, test_labels, "data/s2_test_data.csv")

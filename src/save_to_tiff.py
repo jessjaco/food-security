@@ -26,10 +26,10 @@ def load_npy_file(dirname: str, which_one: str) -> np.ndarray:
 def load_npy_files(which_one: str = "bands", time: int = 0) -> np.ndarray:
     data_8 = load_npy_file(get_dirname("8"), which_one)
     data_9 = load_npy_file(get_dirname("9"), which_one)
-    dir_19 = "data/input/ref_fusion_competition_south_africa_test_source_sentinel_2/ref_fusion_competition_south_africa_test_source_sentinel_2_34S_20E_259N_2017/"
-    data_19 = load_npy_file(dir_19, which_one)
 
     return np.concatenate((data_9[time, :, :, :], data_8[time, :, :, :]), axis=1)
+    dir_19 = "data/input/ref_fusion_competition_south_africa_test_source_sentinel_2/ref_fusion_competition_south_africa_test_source_sentinel_2_34S_20E_259N_2017/"
+    data_19 = load_npy_file(dir_19, which_one)
 
 
 with open(join(get_dirname("8"), "bbox.pkl"), "rb") as f:

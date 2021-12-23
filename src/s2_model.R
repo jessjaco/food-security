@@ -1,7 +1,8 @@
 library(tidyverse)
 library(xgboost)
 
-d <- read_csv("data/s2_data.csv")
+# d <- read_csv("data/s2_data.csv")
+d <- read_csv("data/s2_training_data_summary.csv")
 
 test_proportion <- 0.2
 n_test_samples <- ceiling(nrow(d) * test_proportion)
@@ -21,12 +22,9 @@ train_features <- as.matrix(features[train_rows, ])
 dgtrain <- xgb.DMatrix(data = train_features, label = train_labels)
 dgtest <- xgb.DMatrix(data = test_features, label = test_labels)
 
-params <- list(
-  max_depth = 2, eta = 0.3,
-  nrounds = 1000, nthread = 8, objective = "multi:softprob", num_class = 5
+bst <- xgboost(
+  data = dgtrain, max_depth = 2, eta = 0.3, nrounds = 1000, nthread = 8, objective = "multi:softprob", num_class = 5
 )
-
-bst <- xgboost(params = params, data = dgtrain)
 
 pred_matrix <- predict(bst, dgtest, reshape = TRUE)
 pred_crop_ids <- apply(pred_matrix, 1, function(x) which.max(x))
