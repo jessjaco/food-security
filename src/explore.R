@@ -1,7 +1,5 @@
-library(sf)
-
-label_files <- list.files("data/ref_fusion_competition_south_africa_train_labels", recursive = TRUE, pattern = "*.geojson", full.names = TRUE)
-
-labels <- do.call(rbind, lapply(label_files, read_sf))
-
-
+library(tidyverse)
+jt <- j %>%
+  select(crop_name, ends_with("mean")) %>%
+  pivot_longer(ends_with("mean"), names_to = c("time", ".value"), names_pattern = "^s2_([^_]+)_(.+)$") %>%
+  mutate(date = as.Date(paste0(time, "-2017"), format = "%j-%Y"), NDVI = 1000 * (B08_mean - B04_mean) / (B08_mean + B04_mean))
