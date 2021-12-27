@@ -58,7 +58,8 @@ run_run <- function(training_d, test_d, params, id, nrounds = "cv", seed = 1337,
     # Right? See
     # https://datascience.stackexchange.com/questions/16342/unbalanced-multiclass-data-with-xgboost
     class_counts <- table(training_d$crop_id)
-    params <- c(params, weight = (min(class_counts) / table(class_counts))[training_d$crop_id])
+    weight_values <- min(class_counts) / class_counts
+    params <- c(params, list(weight = weight_values[training_d$crop_id]))
   }
 
   if (nrounds == "cv") {
