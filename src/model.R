@@ -8,8 +8,8 @@ test_d <- read_csv("data/test_data.csv")
 
 params <- list(
   max_depth = 5, min_child_weight = 1, gamma = 0, subsample = 0.8,
-  colsample_bytree = 0.8, eta = 0.1, nthread = 7,
+  colsample_bytree = 0.8, eta = 0.05, nthread = 7,
   objective = "multi:softprob", num_class = length(unique(d$crop_id))
 )
 
-run_run(d, test_d, params, "6")
+m <- run_run(d, test_d, params, "7")

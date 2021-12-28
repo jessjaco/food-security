@@ -66,7 +66,7 @@ run_run <- function(training_d, test_d, params, id, nrounds = "cv", seed = 1337,
   if (nrounds == "cv") {
     cv <- xgb.cv(
       params = params, data = dg, nrounds = 10000, nfold = 10,
-      early_stopping_rounds = 3, prediction = TRUE
+      early_stopping_rounds = 10, prediction = TRUE
     )
     nrounds <- cv$best_iteration
     saveRDS(cv, glue("{output_dir}/{id}_cv.rds"))
@@ -77,4 +77,5 @@ run_run <- function(training_d, test_d, params, id, nrounds = "cv", seed = 1337,
   xgb.save(m, glue("{output_dir}/{id}.xgb"))
 
   make_predictions(m, test_d, glue("{output_dir}/{id}"))
+  return(m)
 }
