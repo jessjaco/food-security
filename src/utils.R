@@ -1,7 +1,7 @@
 library(tidyverse)
 library(glue)
 
-make_predictions <- function(m, test_df, output_file_stem) {
+make_predictions <- function(m, test_df, output_file_stem = NA) {
   obj_names <- as.character(seq_len(nrow(test_df)) - 1)
 
   fid <- test_df$fid
@@ -23,16 +23,27 @@ make_predictions <- function(m, test_df, output_file_stem) {
 
   rownames(pred_matrix) <- obj_names
 
-  predict_list <- list(
-    fid = fid,
-    crop_id = crop_id,
-    crop_name = crop_name,
-    crop_probs = as.list(as.data.frame(t(pred_matrix)))
-  )
+  if (!is.na(output_file_stem)) {
+    predict_list <- list(
+      fid = fid,
+      crop_id = crop_id,
+      crop_name = crop_name,
+      crop_probs = as.list(as.data.frame(t(pred_matrix)))
+    )
 
-  json_file <- paste0(output_file_stem, ".json")
-  toJSON(predict_list) %>% writeLines(json_file)
-  tar(paste0(output_file_stem, ".tar.gz"), basename(json_file), compression = "gzip", tar = paste0("tar -C ", dirname(output_file_stem)))
+    json_file <- paste0(output_file_stem, ".json")
+    toJSON(predict_list) %>% writeLines(json_file)
+    tar(paste0(output_file_stem, ".tar.gz"), basename(json_file), compression = "gzip", tar = paste0("tar -C ", dirname(output_file_stem)))
+  }
+
+  pred_df <- as.data.frame(pred_matrix)
+  names(pred_df) <- paste0("pred_crop_prob_", 1:ncol(pred_df))
+  results <- cbind(data.frame(fid = fid, pred_crop_id = crop_id, pred_crop_name = crop_name), pred_df)
+
+  if (!is.na(output_file_stem)) {
+    write_csv(results, paste0(output_file_stem, "_predictions.csv"))
+  }
+  results
 }
 
 add_NDVI <- function(d) {
@@ -66,7 +77,7 @@ run_run <- function(training_d, test_d, params, id, nrounds = "cv", seed = 1337,
   if (nrounds == "cv") {
     cv <- xgb.cv(
       params = params, data = dg, nrounds = 10000, nfold = 10,
-      early_stopping_rounds = 10, prediction = TRUE
+      early_stopping_rounds = 3, prediction = TRUE
     )
     nrounds <- cv$best_iteration
     saveRDS(cv, glue("{output_dir}/{id}_cv.rds"))
@@ -75,7 +86,8 @@ run_run <- function(training_d, test_d, params, id, nrounds = "cv", seed = 1337,
 
   m <- do.call(xgboost, c(data = dg, nrounds = nrounds, params))
   xgb.save(m, glue("{output_dir}/{id}.xgb"))
+  saveRDS(m, glue("{output_dir}/{id}.rds"))
 
-  make_predictions(m, test_d, glue("{output_dir}/{id}"))
-  return(m)
+  predictions <- make_predictions(m, test_d, glue("{output_dir}/{id}"))
+  list(model = m, predictions = predictions)
 }
