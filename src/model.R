@@ -5,7 +5,7 @@ source("src/utils.R")
 
 d <- read_csv("data/training_data.csv")
 test_d <- read_csv("data/test_data.csv")
-model_id <- "6b"
+model_id <- "10"
 
 params <- list(
   max_depth = 5, min_child_weight = 1, gamma = 0, subsample = 0.8,

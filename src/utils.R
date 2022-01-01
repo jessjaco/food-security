@@ -76,7 +76,7 @@ run_run <- function(training_d, test_d, params, id, nrounds = "cv", seed = 1337,
 
   if (nrounds == "cv") {
     cv <- xgb.cv(
-      params = params, data = dg, nrounds = 10000, nfold = 10,
+      params = params, data = dg, nrounds = 10000, nfold = 5,
       early_stopping_rounds = 3, prediction = TRUE
     )
     nrounds <- cv$best_iteration
