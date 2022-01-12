@@ -1,7 +1,28 @@
-library(tidyverse)
 library(glue)
+library(keras)
+library(tidyverse)
+library(xgboost)
+library(rjson)
 
-make_predictions <- function(m, test_df, output_file_stem = NA) {
+cce <- function(label_vec, pred_mat) {
+  y_true <- to_categorical(label_vec - 1)
+  y_pred <- to_categorical(apply(pred_mat, 1, which.max) - 1)
+  mean(k_get_value(loss_categorical_crossentropy(y_true, y_pred)))
+}
+
+cce_xgb <- function(preds, dtrain) {
+  # Ultimately, this is the same as merror
+  label_vec <- getinfo(dtrain, "label") + 1
+  pred_mat <- matrix(preds, ncol = length(unique(label_vec)), byrow = TRUE)
+  list(metric = "cce", value = cce(label_vec, pred_mat))
+}
+
+mlogloss <- function(label_vec, pred_matrix) {
+  selection <- matrix(ncol = 2, c(1:nrow(pred_matrix), label_vec))
+  -mean(log(pred_matrix[selection]))
+}
+
+make_predictions <- function(m, test_df, output_file_stem = NA, scale = FALSE) {
   obj_names <- as.character(seq_len(nrow(test_df)) - 1)
 
   fid <- test_df$fid
@@ -9,6 +30,7 @@ make_predictions <- function(m, test_df, output_file_stem = NA) {
 
   test_d <- test_df %>%
     select(-fid, -crop_id, -crop_name) %>%
+    mutate(across(everything(), ~ replace_na(scale(.), 0))) %>%
     as.matrix() %>%
     xgb.DMatrix()
 
@@ -20,7 +42,6 @@ make_predictions <- function(m, test_df, output_file_stem = NA) {
   crop_names <- c("Wheat", "Barley", "Canola", "Lucerne/Medics", "Small grain grazing")
   crop_name <- crop_names[crop_id]
   names(crop_name) <- obj_names
-
   rownames(pred_matrix) <- obj_names
 
   if (!is.na(output_file_stem)) {
@@ -46,20 +67,17 @@ make_predictions <- function(m, test_df, output_file_stem = NA) {
   results
 }
 
-add_NDVI <- function(d) {
-  d %>%
-    distinct() %>%
-    select(fid, ends_with("mean")) %>%
-    pivot_longer(ends_with("mean"), names_to = c("time", ".value"), names_pattern = "^s2_([^_]+)_(.+)$") %>%
-    mutate(NDVI = 1000 * (B08_mean - B04_mean) / (B08_mean + B04_mean)) %>%
-    select(-ends_with("mean")) %>%
-    pivot_wider(names_from = "time", values_from = "NDVI", names_glue = "{.value}_{time}") %>%
-    full_join(d)
+split_train_set <- function(d, train_proportion) {
+  n_train_samples <- ceiling(nrow(d) * train_proportion)
+  train_rows <- sample(nrow(d), n_train_samples, replace = FALSE)
+  list(train_d = d[train_rows, ], validation_d = d[!1:nrow(d) %in% train_rows, ])
 }
 
-run_run <- function(training_d, test_d, params, id, nrounds = "cv", seed = 1337,
-                    output_dir = "data/submissions", weight = FALSE) {
+run_run <- function(training_d, params, id, test_d = NA, nrounds = "cv",
+                    seed = 1337, output_dir = "data/submissions",
+                    weight = FALSE) {
   set.seed(seed)
+
   label <- training_d$crop_id - 1
   features <- select(training_d, -fid, -crop_id, -crop_name)
 
@@ -76,8 +94,8 @@ run_run <- function(training_d, test_d, params, id, nrounds = "cv", seed = 1337,
 
   if (nrounds == "cv") {
     cv <- xgb.cv(
-      params = params, data = dg, nrounds = 10000, nfold = 5,
-      early_stopping_rounds = 3, prediction = TRUE
+      params = params, data = dg, nrounds = 10000, nfold = 10,
+      early_stopping_rounds = 10, prediction = TRUE, maximize = FALSE
     )
     nrounds <- cv$best_iteration
     saveRDS(cv, glue("{output_dir}/{id}_cv.rds"))
@@ -88,6 +106,10 @@ run_run <- function(training_d, test_d, params, id, nrounds = "cv", seed = 1337,
   xgb.save(m, glue("{output_dir}/{id}.xgb"))
   saveRDS(m, glue("{output_dir}/{id}.rds"))
 
-  predictions <- make_predictions(m, test_d, glue("{output_dir}/{id}"))
-  list(model = m, predictions = predictions)
+  results <- list(model = m)
+  if (!is.na(test_d)) {
+    predictions <- make_predictions(m, test_d, glue("{output_dir}/{id}"))
+    results <- c(results, list(predictions = predictions))
+  }
+  results
 }
