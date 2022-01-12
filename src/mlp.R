@@ -9,7 +9,7 @@ get_feature <- function(d) {
     as.matrix()
 }
 
-d <- read_csv("data/training_data_2.csv")
+d <- read_csv("data/training_data.csv")
 label <- get_label(d)
 feature <- get_feature(d)
 
@@ -32,8 +32,7 @@ m %>% compile(
 )
 
 fit(m, train_feature, train_label, epochs = 30, batch_size = 128, validation_data = list(validation_feature, validation_label))
-# fit(m, feature, label, epochs = 10, batch_size = 128)
 
-test_d <- read_csv("data/test_data_2.csv")
+test_d <- read_csv("data/test_data.csv")
 
 make_predictions(m, test_d, scale = TRUE, output_file_stem = "data/submissions/mlp2")
